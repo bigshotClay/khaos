@@ -5,6 +5,7 @@ import io.kotest.core.spec.style.ShouldSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import java.nio.file.Paths
+import java.util.concurrent.TimeUnit
 
 private val projectRoot = Paths.get(System.getProperty("user.dir"))
 private val decisionDoc = SpikeDecisionDocument(
@@ -86,13 +87,18 @@ class SpikeShader2DecisionSpec : ShouldSpec({
             println("Skipping GitHub check — no GH_TOKEN available. Verified in PR description.")
             return@should
         }
-        val result = ProcessBuilder(
+        val pb = ProcessBuilder(
             "gh", "issue", "view", "17",
             "--repo", "bigshotClay/khaos", "--json", "body", "--jq", ".body"
-        ).redirectErrorStream(false).start()
+        )
+        pb.redirectErrorStream(true)
+        pb.environment().also { it.clear(); it["GH_TOKEN"] = token }
+        val result = pb.start()
         val body = result.inputStream.bufferedReader().readText()
-        result.waitFor()
-        withClue("SHADER-2 implementation notes must reference Gradle task (not 'TBD')") {
+        val exited = result.waitFor(30, TimeUnit.SECONDS)
+        withClue("gh subprocess must exit within 30 seconds") { exited shouldBe true }
+        withClue("gh subprocess must exit with code 0") { result.exitValue() shouldBe 0 }
+        withClue("SHADER-2 body must reference Gradle task approach (not 'TBD')") {
             body shouldContain "Gradle"
         }
     }
@@ -227,6 +233,36 @@ class SpikeShader2DecisionSpec : ShouldSpec({
         }
         withClue("Regression must be confirmed moot under the Gradle task approach") {
             (text.contains("moot") || text.contains("regular source")) shouldBe true
+        }
+    }
+
+    // TC-16: Error handling approach for parseReflectionJson is stated — not left implicit
+    should("TC-16: parseReflectionJson error handling approach is stated in document") {
+        val text = decisionDoc.text
+        withClue("Document must not be silent on error handling — must state fail-fast behavior or defer to implementation") {
+            val hasFastFail = text.contains("Fail-fast", ignoreCase = true) ||
+                text.contains("fail fast", ignoreCase = true)
+            val hasDeferNote = text.contains("implementation concern", ignoreCase = true) ||
+                text.contains("error handling is deferred", ignoreCase = true)
+            (hasFastFail || hasDeferNote) shouldBe true
+        }
+    }
+
+    // TC-17: Document-absent failure is isolated — no lazy exception cascade
+    should("TC-17: missing document fails with clear message; second access retries cleanly") {
+        val absentDoc = SpikeDecisionDocument(
+            projectRoot.resolve("does-not-exist-spike-shader-2.md")
+        )
+        withClue("exists must be false for absent document") {
+            absentDoc.exists shouldBe false
+        }
+        val firstError = runCatching { absentDoc.text }.exceptionOrNull()
+        withClue("First access must throw with 'Decision document not found'") {
+            (firstError?.message ?: "no exception") shouldContain "Decision document not found"
+        }
+        val secondError = runCatching { absentDoc.text }.exceptionOrNull()
+        withClue("Second access must also throw with 'Decision document not found' — no lazy exception caching cascade") {
+            (secondError?.message ?: "no exception") shouldContain "Decision document not found"
         }
     }
 })

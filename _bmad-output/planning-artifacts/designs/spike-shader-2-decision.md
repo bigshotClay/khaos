@@ -192,7 +192,11 @@ abstract class ShaderBindingGenTask : DefaultTask() {
         }
     }
 
-    private fun parseReflectionJson(file: File): ShaderReflection { /* JSON parsing */ }
+    private fun parseReflectionJson(file: File): ShaderReflection {
+        // Fail-fast: validate required fields (entryPoints, inputs, ubos, push_constants, textures);
+        // throw IllegalArgumentException naming the missing field and shader file on malformed JSON.
+        /* JSON parsing */
+    }
     private fun generateBindings(r: ShaderReflection): String { /* emit Kotlin source */ }
 }
 ```

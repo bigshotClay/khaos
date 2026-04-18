@@ -8,7 +8,7 @@ class SpikeDecisionDocument(private val path: Path) {
 
     val exists: Boolean get() = path.exists()
 
-    val text: String by lazy {
+    val text: String by lazy(LazyThreadSafetyMode.NONE) {
         check(exists) { "Decision document not found at $path" }
         path.readText()
     }
