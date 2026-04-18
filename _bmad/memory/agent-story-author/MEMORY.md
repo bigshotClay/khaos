@@ -8,7 +8,6 @@ _Keep under 200 lines. Raw session notes go in `sessions/YYYY-MM-DD.md` (not her
 
 ## Open Questions
 - Are there MCP servers or external tools Sage should know about? (never answered)
-- Repo creation commands produced 2026-04-18 — confirm whether Clay executed them before next session
 
 ## Project Context — khaos
 - **PRD complete as of 2026-04-18** — 60 FRs, full NFR set, kernel gate conditions defined
@@ -25,7 +24,8 @@ _Keep under 200 lines. Raw session notes go in `sessions/YYYY-MM-DD.md` (not her
 - When he doesn't understand a term, he says so directly — explain with examples, not definitions
 
 ## Issue Sequencing (v0-kernel)
-- Two shader spikes must complete before SHADER-1 and SHADER-2 production issues are crafted
-- Spike outcomes inform: reflection tool choice, KSP architecture, CI platform requirements
-- After spikes: proceed F-1 → F-2 → VK-1/VK-2 (parallel) → VK-3 → VK-4 → rest
-- Full 34-issue decomposition is in the 2026-04-18 session log
+- All 34 issues created in `bigshotClay/khaos` as of 2026-04-18
+- SHADER-1 (#16) and SHADER-2 (#17) are `blocked` + `needs-decision` until spike outcomes resolve
+- Active path: SPIKE-SHADER-1 (#1) and SPIKE-SHADER-2 (#2) → then F-1 (#3) → F-2 (#4) → VK-1/VK-2 (#5/#6, parallel) → VK-3 (#7) → VK-4 (#8) → rest
+- Kernel gate conditions tied to: GRAPH-5, TEST-3, TEST-4, DOCS-2, DIST-3, and the zero-VUIDs CI requirement
+- v1-growth issues not yet crafted — deferred until kernel gate green
