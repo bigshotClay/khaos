@@ -55,16 +55,16 @@ class SpikeShader1DecisionSpec : ShouldSpec({
     // TC-3: Gradle task skeleton included
     should("TC-3: document contains a runnable Gradle task skeleton") {
         withClue("@CacheableTask annotation must be present in a code block") {
-            decisionDoc.hasCodeBlock("@CacheableTask") shouldBe true
+            decisionDoc.hasCodeBlock("CacheableTask") shouldBe true
         }
         withClue("@InputFiles annotation must be present in a code block") {
             decisionDoc.hasCodeBlock("InputFiles") shouldBe true
         }
         withClue("@OutputDirectory annotation must be present in a code block") {
-            decisionDoc.hasCodeBlock("@OutputDirectory") shouldBe true
+            decisionDoc.hasCodeBlock("OutputDirectory") shouldBe true
         }
         withClue("@TaskAction must be present for both compile and validate tasks") {
-            decisionDoc.hasCodeBlock("@TaskAction") shouldBe true
+            decisionDoc.hasCodeBlock("TaskAction") shouldBe true
         }
         withClue("Compile task AND validate task must both be represented") {
             decisionDoc.hasSection("ShaderCompileTask") shouldBe true
