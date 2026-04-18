@@ -1,0 +1,17 @@
+{
+  "status": "success",
+  "exit_reason": "converged",
+  "issue": "1",
+  "pr": 35,
+  "pr_url": "https://github.com/bigshotClay/khaos/pull/35",
+  "merged_at": "2026-04-18",
+  "coverage_achieved": "100.0%",
+  "loop_iterations": 1,
+  "gauntlet_verdict": "pass",
+  "artifacts": {
+    "design": "/Users/clay/Development/khaos/planning/designs/issue-1-design.md",
+    "test_plan": "/Users/clay/Development/khaos/planning/test-plans/issue-1-plan.md",
+    "review_report": "/Users/clay/Development/khaos/planning/reviews/issue-1-2026-04-18.md",
+    "completion_summary": "/Users/clay/Development/khaos/planning/reviews/issue-1-completion.json"
+  }
+}

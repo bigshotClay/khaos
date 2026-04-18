@@ -1,5 +1,6 @@
 plugins {
     kotlin("jvm") version "2.1.20"
+    jacoco
 }
 
 repositories {
@@ -17,4 +18,13 @@ kotlin {
 
 tasks.test {
     useJUnitPlatform()
+    finalizedBy(tasks.jacocoTestReport)
+}
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+    reports {
+        xml.required = true
+        xml.outputLocation = layout.buildDirectory.file("reports/jacoco/test/jacocoTestReport.xml")
+    }
 }
