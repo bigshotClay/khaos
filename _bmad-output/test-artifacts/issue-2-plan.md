@@ -11,6 +11,10 @@
 
 ---
 
+## Test Cases
+
+15 test cases organized by layer: 5 Acceptance, 7 Design, 3 Failure. See subsections below.
+
 ## Acceptance Coverage
 
 ### TC-1: Decision document committed at the agreed path
@@ -49,12 +53,13 @@
 
 ---
 
-### TC-5: SHADER-2 updated with spike findings
+### TC-5: SHADER-2 issue body updated with spike findings [UPDATED — shadow from 2026-04-18 review]
 **Layer:** Acceptance  
 **Verifies:** AC — "SHADER-2 issue updated with implementation hints from findings"  
-**Condition:** GitHub issue #17 (SHADER-2) has implementation notes from the spike — either updated body or linked comment  
-**Expected:** SHADER-2 implementation notes reference the confirmed approach (Gradle task, NOT KSP) and remove or supersede the KSP-specific AC items with the alternative approach  
-**Edge cases:** SHADER-2 still says "KSP" in its implementation notes after the spike — fails; the spike must have propagated its decision
+**Condition:** GitHub issue #17 (SHADER-2) **body** contains implementation notes from the spike. Checked via `gh issue view 17 --json body --jq '.body'`.  
+**Expected:** Issue body references the confirmed approach (Gradle task, NOT KSP). A comment does not satisfy this — the body itself must be edited via `gh issue edit 17 --body "..."`.  
+**Implementation constraints:** The `gh` subprocess implementing this check must use `redirectErrorStream(true)`, a timeout on `waitFor(30, TimeUnit.SECONDS)`, and a scoped environment (clear env, set only `GH_TOKEN`) to prevent CI deadlock and secret exposure.  
+**Edge cases:** Findings posted only as a comment while body retains "TBD" — fails. `gh` subprocess exits non-zero — exit code must be checked before asserting on body content.
 
 ---
 
@@ -125,12 +130,22 @@
 
 ## Failure Paths
 
-### TC-13: Malformed or missing reflection JSON is detected early
+### TC-13: Input JSON schema names required fields and parsing stub defined [SUPERSEDED by TC-16]
 **Layer:** Failure  
-**Verifies:** Decision — binding generator fails with a clear error when input JSON is missing required fields  
-**Condition:** Decision document or skeleton addresses what happens when spirv-cross produces incomplete/malformed JSON  
-**Expected:** Binding generator validates required JSON fields (entryPoints, inputs, ubos, push_constants) and fails with a descriptive error naming the missing field and the source shader. It does NOT silently generate an empty or partial binding class.  
+**Verifies:** Decision — input contract names required JSON fields and the skeleton defines a parsing entry point  
+**Condition:** Decision document names the five required JSON fields (entryPoints, inputs, ubos, push_constants, textures) and includes a `parseReflectionJson` method stub in the skeleton  
+**Expected:** All five field names present in the JSON schema section. `parseReflectionJson` visible in a code block.  
 **Edge cases:** JSON is valid but has zero descriptors (shader with no bindings) — must produce a valid empty binding object, not an error
+
+---
+
+### TC-16: Input JSON schema contract is defined; error handling approach is stated [ADDED — shadow from 2026-04-18 review]
+**Layer:** Failure  
+**Shadow:** TC-13 does not test error-handling behavior as specified  
+**Verifies:** That TC-13's original intent (error detection for malformed JSON) is either addressed by the document or explicitly scoped out  
+**Condition:** Decision document either (a) explicitly describes what `parseReflectionJson` does when required fields are missing — error message, fail-fast behavior — OR (b) states that error handling is deferred to the implementation phase (not in the spike deliverable scope)  
+**Expected:** Document does not leave error handling behavior implicit. Either the skeleton includes a note like "validate required fields; throw with shader name on missing field" OR a section note says "detailed error handling is an implementation concern beyond the spike scope."  
+**Edge cases:** Document is silent on error handling — fails; the spike must not leave this open-ended given that `@CacheableTask` + incremental builds mean silent errors cause very hard-to-debug stale-binding issues
 
 ---
 
@@ -152,11 +167,21 @@
 
 ---
 
+### TC-17: TC-1 failure (document absent) does not cascade to all subsequent tests [ADDED — shadow from 2026-04-18 review]
+**Layer:** Failure  
+**Shadow:** Lazy `text` property exception corrupts all subsequent tests sharing the singleton  
+**Verifies:** That `SpikeDecisionDocument.text`'s lazy initialization failure is isolated — TC-1 fails with a clear message, other TCs either skip or fail independently  
+**Condition:** Decision document is absent from disk at test time  
+**Expected:** TC-1 fails with "Decision document not found at `<path>`". Subsequent TCs that call `decisionDoc.text` fail with the same clear message, not a different `IllegalStateException` from cached lazy state. The suite does not produce misleading cascade failures that imply unrelated assertions failed.  
+**Implementation note:** Use `LazyThreadSafetyMode.NONE` on the `text` property, or restructure tests so each TC that needs the document checks `decisionDoc.exists` first. Do not rely on Kotlin's default lazy exception caching to produce useful diagnostics.
+
+---
+
 ## Coverage Summary
 
 | Layer | Count | Notes |
 |---|---|---|
-| Acceptance | 5 | One per AC item |
+| Acceptance | 5 | One per AC item; TC-5 clarified: body edit required, subprocess constraints added |
 | Design | 7 | KSP rejection rationale, Gradle incremental, three-stage pipeline, generated type idioms, source set wiring, spirv-cross choice, determinism |
-| Failure | 3 | Malformed JSON, incremental invalidation, KSP IDE regression (informational) |
-| **Total** | **15** | |
+| Failure | 5 | TC-13 (scoped to schema), TC-14 (incremental), TC-15 (KSP IDE regression), TC-16 (error handling stated), TC-17 (document-absent cascade) |
+| **Total** | **17** | (+2 added, TC-13 superseded by TC-16) |
