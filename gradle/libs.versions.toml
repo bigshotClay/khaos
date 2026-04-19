@@ -1,0 +1,30 @@
+[versions]
+kotlin        = "2.3.20"
+ksp           = "2.3.6"
+kotest        = "5.9.1"
+lwjgl         = "3.3.6"
+
+[libraries]
+# ── LWJGL ─────────────────────────────────────────────────────
+lwjgl-bom                        = { module = "org.lwjgl:lwjgl-bom",     version.ref = "lwjgl" }
+lwjgl-core                       = { module = "org.lwjgl:lwjgl" }
+lwjgl-vulkan                     = { module = "org.lwjgl:lwjgl-vulkan" }
+lwjgl-shaderc                    = { module = "org.lwjgl:lwjgl-shaderc" }
+
+lwjgl-natives-linux              = { module = "org.lwjgl:lwjgl",         classifier = "natives-linux" }
+lwjgl-natives-linux-arm64        = { module = "org.lwjgl:lwjgl",         classifier = "natives-linux-arm64" }
+lwjgl-natives-macos              = { module = "org.lwjgl:lwjgl",         classifier = "natives-macos" }
+lwjgl-natives-macos-arm64        = { module = "org.lwjgl:lwjgl",         classifier = "natives-macos-arm64" }
+lwjgl-natives-windows            = { module = "org.lwjgl:lwjgl",         classifier = "natives-windows" }
+lwjgl-vulkan-natives-macos       = { module = "org.lwjgl:lwjgl-vulkan",  classifier = "natives-macos" }
+lwjgl-vulkan-natives-macos-arm64 = { module = "org.lwjgl:lwjgl-vulkan",  classifier = "natives-macos-arm64" }
+
+# ── Kotest ────────────────────────────────────────────────────
+kotest-runner-junit5    = { module = "io.kotest:kotest-runner-junit5",   version.ref = "kotest" }
+kotest-assertions-core  = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }
+kotest-property         = { module = "io.kotest:kotest-property",        version.ref = "kotest" }
+
+[plugins]
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlin-jvm           = { id = "org.jetbrains.kotlin.jvm",           version.ref = "kotlin" }
+ksp                  = { id = "com.google.devtools.ksp",             version.ref = "ksp" }

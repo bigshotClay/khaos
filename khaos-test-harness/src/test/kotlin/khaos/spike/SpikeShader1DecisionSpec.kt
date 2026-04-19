@@ -6,6 +6,8 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import java.nio.file.Paths
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.TimeUnit
 
 private val projectRoot = Paths.get(System.getProperty("user.dir"))
 private val decisionDoc = SpikeDecisionDocument(
@@ -97,12 +99,27 @@ class SpikeShader1DecisionSpec : ShouldSpec({
             println("Skipping GitHub check — no GH_TOKEN available. Verified in PR description.")
             return@should
         }
-        val result = ProcessBuilder("gh", "issue", "view", "16",
-            "--repo", "bigshotClay/khaos", "--json", "body", "--jq", ".body")
-            .redirectErrorStream(false)
-            .start()
-        val body = result.inputStream.bufferedReader().readText()
-        result.waitFor()
+        val pb = ProcessBuilder(
+            "gh", "issue", "view", "16",
+            "--repo", "bigshotClay/khaos", "--json", "body", "--jq", ".body"
+        )
+        pb.redirectErrorStream(true)
+        pb.environment().also {
+            it.clear()
+            it["PATH"] = System.getenv("PATH") ?: "/usr/bin:/bin"
+            it["HOME"] = System.getenv("HOME") ?: ""
+            it["GH_TOKEN"] = token
+        }
+        val result = pb.start()
+        val bodyFuture = CompletableFuture.supplyAsync { result.inputStream.bufferedReader().readText() }
+        val exited = result.waitFor(30, TimeUnit.SECONDS)
+        if (!exited) {
+            result.destroyForcibly()
+            bodyFuture.cancel(true)
+        }
+        withClue("gh subprocess must exit within 30 seconds") { exited shouldBe true }
+        withClue("gh subprocess must exit with code 0") { result.exitValue() shouldBe 0 }
+        val body = bodyFuture.get(5, TimeUnit.SECONDS)
         withClue("SHADER-1 body must reference glslc subprocess approach from spike") {
             body shouldContain "glslc"
         }
