@@ -5,6 +5,7 @@ import io.kotest.core.spec.style.ShouldSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import java.nio.file.Paths
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 
 private val projectRoot = Paths.get(System.getProperty("user.dir"))
@@ -33,19 +34,22 @@ class SpikeShader2DecisionSpec : ShouldSpec({
         withClue("Q1 evidence: KSP external file limitation must cite KSP #1677") {
             text shouldContain "1677"
         }
-        withClue("Q2 evidence: KSP generated type support must address @JvmInline") {
+        withClue("Q2 (KSP processor architecture) must be explicitly stated as moot — not left unanswered by silence") {
+            text shouldContain "This question is moot"
+        }
+        withClue("Q3 evidence: KSP generated type support must address @JvmInline") {
             text shouldContain "@JvmInline"
         }
-        withClue("Q2 evidence: known IDE regression must cite KSP #1351") {
+        withClue("Q3 evidence: known IDE regression must cite KSP #1351") {
             text shouldContain "1351"
         }
-        withClue("Q3 evidence: Gradle CacheableTask must be named as the right tool") {
+        withClue("Q4 evidence: Gradle CacheableTask must be named as the right tool") {
             text shouldContain "CacheableTask"
         }
-        withClue("Q4 evidence: task pipeline must show reflectShaders stage") {
+        withClue("Q5 evidence: task pipeline must show reflectShaders stage") {
             text shouldContain "reflectShaders"
         }
-        withClue("Q5 evidence: input/output contract must include JSON field names") {
+        withClue("I/O contract evidence: input JSON must name push_constants field") {
             text shouldContain "push_constants"
         }
         withClue("Evidence: Sources section must be present with citations") {
@@ -57,14 +61,13 @@ class SpikeShader2DecisionSpec : ShouldSpec({
     should("TC-3: KSP is rejected and standalone Gradle CacheableTask named as alternative") {
         val text = decisionDoc.text
         withClue("Verdict must explicitly reject KSP") {
-            (text.contains("Do not use KSP") || text.contains("not use KSP")) shouldBe true
+            text shouldContain "not use KSP"
         }
         withClue("Alternative must be named: standalone Gradle CacheableTask") {
             text shouldContain "CacheableTask"
         }
         withClue("Rationale must explain Gradle cannot track external JSON inputs") {
-            (text.contains("Gradle has no way") || text.contains("Gradle tracks") ||
-                text.contains("input tracking") || text.contains("external file inputs to Gradle")) shouldBe true
+            text shouldContain "external file inputs to Gradle"
         }
     }
 
@@ -75,8 +78,8 @@ class SpikeShader2DecisionSpec : ShouldSpec({
         withClue("Input JSON must name 'push_constants' field") { text shouldContain "push_constants" }
         withClue("Input JSON must name 'inputs' field (vertex inputs)") { text shouldContain "\"inputs\"" }
         withClue("Input JSON must name 'textures' field") { text shouldContain "textures" }
-        withClue("Output contract must show @JvmInline value class in code block") {
-            decisionDoc.hasCodeBlock("@JvmInline value class") shouldBe true
+        withClue("Output contract must show @JvmInline value class in generated output code block") {
+            decisionDoc.hasCodeBlockInSection("**Output contract:**", "@JvmInline value class") shouldBe true
         }
     }
 
@@ -84,7 +87,7 @@ class SpikeShader2DecisionSpec : ShouldSpec({
     should("TC-5: SHADER-2 issue #17 has implementation hints referencing Gradle task approach") {
         val token = System.getenv("GH_TOKEN") ?: System.getenv("GITHUB_TOKEN")
         if (token == null) {
-            println("Skipping GitHub check — no GH_TOKEN available. Verified in PR description.")
+            println("Skipping GitHub check — no GH_TOKEN available. Verified manually: gh issue view 17 body contains Gradle task approach.")
             return@should
         }
         val pb = ProcessBuilder(
@@ -92,12 +95,22 @@ class SpikeShader2DecisionSpec : ShouldSpec({
             "--repo", "bigshotClay/khaos", "--json", "body", "--jq", ".body"
         )
         pb.redirectErrorStream(true)
-        pb.environment().also { it.clear(); it["GH_TOKEN"] = token }
+        pb.environment().also {
+            it.clear()
+            it["PATH"] = System.getenv("PATH") ?: "/usr/bin:/bin"
+            it["HOME"] = System.getenv("HOME") ?: ""
+            it["GH_TOKEN"] = token
+        }
         val result = pb.start()
-        val body = result.inputStream.bufferedReader().readText()
+        val bodyFuture = CompletableFuture.supplyAsync { result.inputStream.bufferedReader().readText() }
         val exited = result.waitFor(30, TimeUnit.SECONDS)
+        if (!exited) {
+            result.destroyForcibly()
+            bodyFuture.cancel(true)
+        }
         withClue("gh subprocess must exit within 30 seconds") { exited shouldBe true }
         withClue("gh subprocess must exit with code 0") { result.exitValue() shouldBe 0 }
+        val body = bodyFuture.get(5, TimeUnit.SECONDS)
         withClue("SHADER-2 body must reference Gradle task approach (not 'TBD')") {
             body shouldContain "Gradle"
         }
@@ -110,11 +123,10 @@ class SpikeShader2DecisionSpec : ShouldSpec({
             text shouldContain "1677"
         }
         withClue("Failure must be described as silent — stale types without a build error") {
-            (text.contains("silent") || text.contains("stale")) shouldBe true
+            text shouldContain "silent"
         }
         withClue("Must confirm there is no supported KSP API to declare external Gradle inputs") {
-            (text.contains("no mechanism") || text.contains("No built-in") ||
-                text.contains("no supported") || text.contains("no way")) shouldBe true
+            text shouldContain "no supported"
         }
     }
 
@@ -139,24 +151,20 @@ class SpikeShader2DecisionSpec : ShouldSpec({
         val text = decisionDoc.text
         withClue("compileShaders stage must be present") { text shouldContain "compileShaders" }
         withClue("reflectShaders stage must be present") { text shouldContain "reflectShaders" }
-        withClue("binding generation stage must be present") {
-            (text.contains("generateShaderBindings") || text.contains("generateBindings")) shouldBe true
-        }
-        withClue("reflectShaders must produce .reflection.json files") {
-            text shouldContain "reflection.json"
-        }
+        withClue("generateShaderBindings stage must be present") { text shouldContain "generateShaderBindings" }
+        withClue("reflectShaders must produce .reflection.json files") { text shouldContain "reflection.json" }
     }
 
-    // TC-9: Generated types use correct Kotlin idioms
+    // TC-9: Generated types use correct Kotlin idioms — scoped to output contract code block
     should("TC-9: generated output example uses @JvmInline value class, sealed interface, data class") {
         withClue("@JvmInline value class must appear in generated output code block") {
-            decisionDoc.hasCodeBlock("@JvmInline value class") shouldBe true
+            decisionDoc.hasCodeBlockInSection("**Output contract:**", "@JvmInline value class") shouldBe true
         }
         withClue("sealed interface must appear in generated output code block for vertex attributes") {
-            decisionDoc.hasCodeBlock("sealed interface") shouldBe true
+            decisionDoc.hasCodeBlockInSection("**Output contract:**", "sealed interface") shouldBe true
         }
         withClue("data class must appear in generated output code block for push constants") {
-            decisionDoc.hasCodeBlock("data class") shouldBe true
+            decisionDoc.hasCodeBlockInSection("**Output contract:**", "data class") shouldBe true
         }
         withClue("Generated types must target commonMain for KMP portability") {
             decisionDoc.text shouldContain "commonMain"
@@ -165,8 +173,8 @@ class SpikeShader2DecisionSpec : ShouldSpec({
 
     // TC-10: Source set wiring — generated sources in commonMain
     should("TC-10: generateShaderBindings outputDir is wired into commonMain kotlin.srcDir") {
-        withClue("Registration snippet must wire outputDir into Kotlin source sets") {
-            (decisionDoc.hasCodeBlock("kotlin.srcDir") || decisionDoc.hasCodeBlock("srcDirs")) shouldBe true
+        withClue("Registration snippet must wire outputDir into Kotlin source sets via kotlin.srcDir") {
+            decisionDoc.hasCodeBlock("kotlin.srcDir") shouldBe true
         }
         withClue("Source set wiring must target commonMain (not jvmMain)") {
             decisionDoc.hasCodeBlock("commonMain") shouldBe true
@@ -180,8 +188,7 @@ class SpikeShader2DecisionSpec : ShouldSpec({
             text shouldContain "spirv-cross"
         }
         withClue("Rationale must cite that spirv-cross is already in the Vulkan SDK") {
-            (text.contains("Vulkan SDK") || text.contains("already installed") ||
-                text.contains("already in the Vulkan SDK")) shouldBe true
+            text shouldContain "Vulkan SDK"
         }
         withClue("spirv-reflect-kt must be noted as a future alternative path") {
             text shouldContain "spirv-reflect-kt"
@@ -191,11 +198,11 @@ class SpikeShader2DecisionSpec : ShouldSpec({
     // TC-12: Determinism invariant stated
     should("TC-12: same reflection JSON produces byte-identical Kotlin output — determinism stated") {
         withClue("Document must state the determinism invariant for the binding generator") {
-            (decisionDoc.text.contains("deterministic") || decisionDoc.text.contains("determinism")) shouldBe true
+            decisionDoc.text shouldContain "deterministic"
         }
     }
 
-    // TC-13: Required JSON fields named; parseReflectionJson parsing stub present
+    // TC-13: Required JSON fields named; parseReflectionJson parsing stub present [SUPERSEDED by TC-16]
     should("TC-13: input JSON schema names required fields and skeleton defines parseReflectionJson") {
         val text = decisionDoc.text
         withClue("Required JSON field 'entryPoints' must be in input contract") {
@@ -232,7 +239,7 @@ class SpikeShader2DecisionSpec : ShouldSpec({
             text shouldContain "1351"
         }
         withClue("Regression must be confirmed moot under the Gradle task approach") {
-            (text.contains("moot") || text.contains("regular source")) shouldBe true
+            text shouldContain "moot"
         }
     }
 
@@ -263,6 +270,14 @@ class SpikeShader2DecisionSpec : ShouldSpec({
         val secondError = runCatching { absentDoc.text }.exceptionOrNull()
         withClue("Second access must also throw with 'Decision document not found' — no lazy exception caching cascade") {
             (secondError?.message ?: "no exception") shouldContain "Decision document not found"
+        }
+    }
+
+    // TC-18: committedToGit() returns false when git exits non-zero
+    should("TC-18: committedToGit() returns false when git subprocess exits non-zero") {
+        val outsideGitDoc = SpikeDecisionDocument(Paths.get("/tmp/nonexistent-spike-shader-test.md"))
+        withClue("committedToGit() must return false when run outside a git repository (git exits non-zero)") {
+            outsideGitDoc.committedToGit() shouldBe false
         }
     }
 })

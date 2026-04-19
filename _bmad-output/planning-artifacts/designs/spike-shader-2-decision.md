@@ -17,6 +17,8 @@ The spike hypothesis was "KSP is the right mechanism for consuming SPIR-V reflec
 
 ## Questions Answered
 
+> **Q2 — What is the right KSP processor architecture for this use case?** This question is moot: KSP is rejected as the wrong tool for this problem. There is no right KSP processor architecture; the correct answer is not to use KSP at all.
+
 ### 1. Can a KSP processor consume external files (SPIR-V JSON from spirv-cross or spirv-reflect) as primary input?
 
 **Technically yes, architecturally wrong.**
