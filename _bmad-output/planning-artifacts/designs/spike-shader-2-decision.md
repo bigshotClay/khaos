@@ -37,7 +37,7 @@ KSP generators write arbitrary Kotlin source text to output files in `build/gene
 
 Known caveat: KSP-generated sealed hierarchies are sometimes not recognized as sealed by the IDE (IntelliJ/Android Studio). The exhaustive `when` expression check fails in the editor even though compilation succeeds. This is a tracked issue (KSP #1351). At build time the types are correct; the IDE experience is degraded.
 
-This caveat is moot for the standalone Gradle task approach, since generated files are added to the source set as regular Kotlin sources. The Kotlin compiler and IDE see them identically to hand-written files.
+This question is moot for the standalone Gradle task approach, since generated files are added to the source set as regular Kotlin sources. The Kotlin compiler and IDE see them identically to hand-written files.
 
 ### 3. Is KSP the right tool, or would a standalone Gradle code-generation task be simpler and more appropriate?
 
@@ -192,7 +192,7 @@ abstract class ShaderBindingGenTask : DefaultTask() {
         }
     }
 
-    private fun parseReflectionJson(file: File): ShaderReflection { /* JSON parsing */ }
+    private fun parseReflectionJson(file: File): ShaderReflection { /* Fail-fast: validate required fields; throw with shader name on missing field */ }
     private fun generateBindings(r: ShaderReflection): String { /* emit Kotlin source */ }
 }
 ```

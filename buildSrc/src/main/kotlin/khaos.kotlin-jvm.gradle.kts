@@ -3,6 +3,8 @@ plugins {
     jacoco
 }
 
+val catalogLibs = the<VersionCatalogsExtension>().named("libs")
+
 kotlin {
     jvmToolchain(21)
     compilerOptions {
@@ -11,8 +13,8 @@ kotlin {
 }
 
 dependencies {
-    testImplementation(libs.kotest.runner.junit5)
-    testImplementation(libs.kotest.assertions.core)
+    testImplementation(catalogLibs.findLibrary("kotest-runner-junit5").get())
+    testImplementation(catalogLibs.findLibrary("kotest-assertions-core").get())
 }
 
 tasks.test {

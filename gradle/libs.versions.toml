@@ -6,18 +6,13 @@ lwjgl         = "3.3.6"
 
 [libraries]
 # ── LWJGL ─────────────────────────────────────────────────────
-lwjgl-bom                        = { module = "org.lwjgl:lwjgl-bom",     version.ref = "lwjgl" }
-lwjgl-core                       = { module = "org.lwjgl:lwjgl" }
-lwjgl-vulkan                     = { module = "org.lwjgl:lwjgl-vulkan" }
-lwjgl-shaderc                    = { module = "org.lwjgl:lwjgl-shaderc" }
-
-lwjgl-natives-linux              = { module = "org.lwjgl:lwjgl",         classifier = "natives-linux" }
-lwjgl-natives-linux-arm64        = { module = "org.lwjgl:lwjgl",         classifier = "natives-linux-arm64" }
-lwjgl-natives-macos              = { module = "org.lwjgl:lwjgl",         classifier = "natives-macos" }
-lwjgl-natives-macos-arm64        = { module = "org.lwjgl:lwjgl",         classifier = "natives-macos-arm64" }
-lwjgl-natives-windows            = { module = "org.lwjgl:lwjgl",         classifier = "natives-windows" }
-lwjgl-vulkan-natives-macos       = { module = "org.lwjgl:lwjgl-vulkan",  classifier = "natives-macos" }
-lwjgl-vulkan-natives-macos-arm64 = { module = "org.lwjgl:lwjgl-vulkan",  classifier = "natives-macos-arm64" }
+# BOM manages versions for all LWJGL artifacts.
+# Native classifier variants (natives-linux, natives-macos, etc.) are not
+# expressible in TOML — declare them inline with variantOf() or "m:a::cls" notation.
+lwjgl-bom     = { module = "org.lwjgl:lwjgl-bom",     version.ref = "lwjgl" }
+lwjgl-core    = { module = "org.lwjgl:lwjgl" }
+lwjgl-vulkan  = { module = "org.lwjgl:lwjgl-vulkan" }
+lwjgl-shaderc = { module = "org.lwjgl:lwjgl-shaderc" }
 
 # ── Kotest ────────────────────────────────────────────────────
 kotest-runner-junit5    = { module = "io.kotest:kotest-runner-junit5",   version.ref = "kotest" }
