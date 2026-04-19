@@ -34,6 +34,11 @@ _Distilled insights. Grows over time. Keep under 200 lines._
 - **LWJGL `lwjglNatives` hardcoded = platform breakage:** `"natives-linux"` hardcoded in `build.gradle.kts` breaks macOS and Windows local dev. Always require platform-conditional native classifiers or OS-detection logic.
 - **`vkCreateInstance` result must be checked in every TC that uses it:** Discarding the return value means a failed creation produces no VUIDs, and the test fails for the wrong reason. TC verifying VUID emission must assert `VK_SUCCESS` as a precondition.
 
+## Gauntlet Shadow Patterns (from Issue #4 Loop 2)
+
+- **Shadow fixes must propagate to ALL test contexts:** When a fix is applied (e.g., assert messenger VK_SUCCESS in the main test), every other test that makes the same call must apply the same requirement. TC-14 reintroduced the G-07 failure mode because it made the same `vkCreateDebugUtilsMessengerEXT` call without the assertion. When writing test plan updates from shadows, check all TCs that touch the same API.
+- **G-02 try/finally applies to ALL Vulkan handles, not just callbacks:** `VkInstance`, `VkDevice`, `VkDebugUtilsMessengerCallbackEXT` — any handle created in a test body where assertions can throw between creation and cleanup must be protected by try/finally. The test plan should state this explicitly, not assume the developer will generalize from the callback case.
+
 ## Issue Sequencing (v0-kernel, as of 2026-04-18)
 - Spikes #1 and #2: design decisions written; issues still OPEN (not closed yet)
 - Active path: F-1 (#3) → F-2 (#4) → VK-1/VK-2 (#5/#6) → VK-3 (#7) → VK-4 (#8) → VK-5 (#9) → ...

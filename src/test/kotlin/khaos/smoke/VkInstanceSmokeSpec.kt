@@ -383,7 +383,8 @@ class VkInstanceSmokeSpec : FunSpec({
                     specStr.isNotEmpty() shouldBe true
                 }
 
-                // TC-7: Driver version requires a VkInstance to enumerate physical devices
+                // TC-7: Driver version requires a VkInstance to enumerate physical devices.
+                // L2-02: instance must be destroyed in finally — assertions can throw between creation and destroy.
                 val createInfo = VkInstanceCreateInfo.calloc(stack).apply {
                     sType(VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO)
                 }
@@ -393,29 +394,30 @@ class VkInstanceSmokeSpec : FunSpec({
                     result shouldBe VK_SUCCESS
                 }
                 val instance = VkInstance(instanceHandle[0], createInfo)
+                try {
+                    val deviceCount = stack.ints(0)
+                    vkEnumeratePhysicalDevices(instance, deviceCount, null)
+                    withClue("TC-7: At least one physical device must be present for driver version query") {
+                        deviceCount[0] shouldNotBe 0
+                    }
+                    val deviceHandles = stack.mallocPointer(deviceCount[0])
+                    vkEnumeratePhysicalDevices(instance, deviceCount, deviceHandles)
 
-                val deviceCount = stack.ints(0)
-                vkEnumeratePhysicalDevices(instance, deviceCount, null)
-                withClue("TC-7: At least one physical device must be present for driver version query") {
-                    deviceCount[0] shouldNotBe 0
+                    val deviceProps = VkPhysicalDeviceProperties.malloc(stack)
+                    vkGetPhysicalDeviceProperties(VkPhysicalDevice(deviceHandles[0], instance), deviceProps)
+
+                    val rawDriverVersion = deviceProps.driverVersion()
+                    val driverMajor = rawDriverVersion ushr 22
+                    val driverMinor = (rawDriverVersion ushr 12) and 0x3FF
+                    val driverPatch = rawDriverVersion and 0xFFF
+                    val driverVersionStr = "$driverMajor.$driverMinor.$driverPatch"
+                    println("Lavapipe driver version: $driverVersionStr")
+                    withClue("TC-7: Lavapipe driver version string must be non-empty") {
+                        driverVersionStr.isNotEmpty() shouldBe true
+                    }
+                } finally {
+                    vkDestroyInstance(instance, null)
                 }
-                val deviceHandles = stack.mallocPointer(deviceCount[0])
-                vkEnumeratePhysicalDevices(instance, deviceCount, deviceHandles)
-
-                val deviceProps = VkPhysicalDeviceProperties.malloc(stack)
-                vkGetPhysicalDeviceProperties(VkPhysicalDevice(deviceHandles[0], instance), deviceProps)
-
-                val rawDriverVersion = deviceProps.driverVersion()
-                val driverMajor = rawDriverVersion ushr 22
-                val driverMinor = (rawDriverVersion ushr 12) and 0x3FF
-                val driverPatch = rawDriverVersion and 0xFFF
-                val driverVersionStr = "$driverMajor.$driverMinor.$driverPatch"
-                println("Lavapipe driver version: $driverVersionStr")
-                withClue("TC-7: Lavapipe driver version string must be non-empty") {
-                    driverVersionStr.isNotEmpty() shouldBe true
-                }
-
-                vkDestroyInstance(instance, null)
             }
         }
 
@@ -468,7 +470,12 @@ class VkInstanceSmokeSpec : FunSpec({
                     }
                     val instance = VkInstance(instanceHandle[0], createInfo)
 
-                    vkCreateDebugUtilsMessengerEXT(instance, messengerCreateInfo, null, stack.longs(0L))
+                    // TC-14 precondition (L2-01): messenger creation must succeed — silent failure means no VUIDs fire
+                    val messengerHandle = stack.longs(0L)
+                    val messengerResult = vkCreateDebugUtilsMessengerEXT(instance, messengerCreateInfo, null, messengerHandle)
+                    withClue("TC-14 precondition: vkCreateDebugUtilsMessengerEXT must succeed before testing VUID detection") {
+                        messengerResult shouldBe VK_SUCCESS
+                    }
 
                     // Deliberately destroy instance while messenger is still alive (wrong order).
                     // Triggers VUID-vkDestroyInstance-instance-00629.
