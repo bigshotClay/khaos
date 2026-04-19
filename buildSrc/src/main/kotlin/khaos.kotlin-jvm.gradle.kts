@@ -13,13 +13,12 @@ kotlin {
 }
 
 dependencies {
-    testImplementation(catalogLibs.findLibrary("kotest-runner-junit5").get())
-    testImplementation(catalogLibs.findLibrary("kotest-assertions-core").get())
+    testImplementation(catalogLibs.findLibrary("kotest-runner-junit5").orElseThrow { GradleException("Catalog entry 'kotest-runner-junit5' not found in libs catalog") })
+    testImplementation(catalogLibs.findLibrary("kotest-assertions-core").orElseThrow { GradleException("Catalog entry 'kotest-assertions-core' not found in libs catalog") })
 }
 
 tasks.test {
     useJUnitPlatform()
-    finalizedBy(tasks.jacocoTestReport)
 }
 
 tasks.jacocoTestReport {

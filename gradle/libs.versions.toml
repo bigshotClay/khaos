@@ -7,8 +7,14 @@ lwjgl         = "3.3.6"
 [libraries]
 # ── LWJGL ─────────────────────────────────────────────────────
 # BOM manages versions for all LWJGL artifacts.
-# Native classifier variants (natives-linux, natives-macos, etc.) are not
-# expressible in TOML — declare them inline with variantOf() or "m:a::cls" notation.
+# Native classifier variants (natives-linux, natives-macos-arm64, natives-windows, etc.)
+# are NOT expressible in TOML (Gradle 9.x does not support `classifier =` in catalog entries).
+# Declare natives inline at the module level using one of:
+#   variantOf(libs.lwjgl.core) { classifier("natives-linux") }
+#   "org.lwjgl:lwjgl::natives-linux"
+#   "org.lwjgl:lwjgl::natives-macos-arm64"
+#   "org.lwjgl:lwjgl-vulkan::natives-macos"   (macOS only — Linux/Windows use system ICD)
+# See D6 in planning/designs/issue-3-design.md for the full native strategy.
 lwjgl-bom     = { module = "org.lwjgl:lwjgl-bom",     version.ref = "lwjgl" }
 lwjgl-core    = { module = "org.lwjgl:lwjgl" }
 lwjgl-vulkan  = { module = "org.lwjgl:lwjgl-vulkan" }

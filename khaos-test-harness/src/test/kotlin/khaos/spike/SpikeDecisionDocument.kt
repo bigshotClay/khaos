@@ -1,6 +1,7 @@
 package khaos.spike
 
 import java.nio.file.Path
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.exists
 import kotlin.io.path.readText
@@ -15,17 +16,22 @@ class SpikeDecisionDocument(private val path: Path) {
     }
 
     fun committedToGit(): Boolean {
-        val result = ProcessBuilder("git", "log", "--oneline", "--", path.toString())
-            .directory(path.parent.toFile())
+        val parent = path.parent ?: return false
+        if (!parent.toFile().exists()) return false
+        val pb = ProcessBuilder("git", "log", "--oneline", "--", path.toString())
+            .directory(parent.toFile())
             .redirectErrorStream(true)
-            .start()
-        val output = result.inputStream.bufferedReader().readText()
+        pb.environment().clear()
+        val result = pb.start()
+        val outputFuture = CompletableFuture.supplyAsync { result.inputStream.bufferedReader().readText() }
         val exited = result.waitFor(30, TimeUnit.SECONDS)
         if (!exited) {
             result.destroyForcibly()
+            outputFuture.cancel(true)
             return false
         }
         if (result.exitValue() != 0) return false
+        val output = outputFuture.get(5, TimeUnit.SECONDS)
         return output.isNotBlank()
     }
 
