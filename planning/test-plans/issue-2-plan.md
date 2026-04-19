@@ -1,0 +1,1 @@
+/Users/clay/Development/khaos/_bmad-output/test-artifacts/issue-2-plan.md
