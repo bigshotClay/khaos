@@ -22,6 +22,7 @@ class SpikeDecisionDocument(private val path: Path) {
             .directory(parent.toFile())
             .redirectErrorStream(true)
         pb.environment().clear()
+        pb.environment()["PATH"] = System.getenv("PATH") ?: "/usr/bin:/bin"
         val result = pb.start()
         val outputFuture = CompletableFuture.supplyAsync { result.inputStream.bufferedReader().readText() }
         val exited = result.waitFor(30, TimeUnit.SECONDS)

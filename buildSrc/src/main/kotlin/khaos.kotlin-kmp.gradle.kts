@@ -1,4 +1,4 @@
-// TODO(issue-N): wire JaCoCo for jvmTest task in KMP modules — deferred from Issue #3 (design A6)
+// TODO: wire JaCoCo for jvmTest task in KMP modules — deferred from Issue #3 (design A6)
 plugins {
     kotlin("multiplatform")
 }
