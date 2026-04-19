@@ -9,3 +9,4 @@
 
 ## Session Logs
 - [sessions/2026-04-18.md](sessions/2026-04-18.md) — First Breath + issue #1 implementation
+- [sessions/2026-04-19.md](sessions/2026-04-19.md) — Issue #3 (3 Gauntlet loops, PR #37 merged) + Issue #4 Loop 1 (CI pipeline, PR #38) + Issue #4 Loop 2 (11 Gauntlet findings addressed)

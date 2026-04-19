@@ -9,3 +9,4 @@
 
 ## Session Logs
 - [sessions/2026-04-18.md](sessions/2026-04-18.md) — First Breath
+- [sessions/2026-04-19.md](sessions/2026-04-19.md) — Issue #4 (F-2: CI pipeline)
