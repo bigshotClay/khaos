@@ -7,13 +7,13 @@
 | Date | 2026-04-18 |
 | Author | Sentinel |
 | Design input | `_bmad-output/planning-artifacts/designs/spike-shader-2-decision.md` |
-| Test count | 15 (5 Acceptance, 7 Design, 3 Failure) |
+| Test count | 18 (5 Acceptance, 7 Design, 6 Failure) |
 
 ---
 
 ## Test Cases
 
-15 test cases organized by layer: 5 Acceptance, 7 Design, 3 Failure. See subsections below.
+18 test cases organized by layer: 5 Acceptance, 7 Design, 6 Failure. See subsections below.
 
 ## Acceptance Coverage
 
@@ -22,7 +22,8 @@
 **Verifies:** AC — "Decision document committed to the agreed path"  
 **Condition:** Check that `_bmad-output/planning-artifacts/designs/spike-shader-2-decision.md` exists and is non-empty  
 **Expected:** File exists, contains a Verdict section, and is committed to version control  
-**Edge cases:** File exists on disk but not in git history (counts as not committed)
+**Implementation constraints:** `committedToGit()` must use `waitFor(30, TimeUnit.SECONDS)` (not bare `waitFor()`). On timeout call `destroyForcibly()` and return `false`. Must check `result.exitValue() == 0` before evaluating `isNotBlank()` — git error output merged via `redirectErrorStream(true)` is non-blank and would otherwise yield a false positive.  
+**Edge cases:** File exists on disk but not in git history (counts as not committed). Git exits non-zero (e.g., in a non-git directory or submodule not initialized) — must return `false`, not `true`.
 
 ---
 
@@ -30,8 +31,9 @@
 **Layer:** Acceptance  
 **Verifies:** AC — "All five questions above answered with evidence"  
 **Condition:** Read the decision document; locate each of the five questions from the spike issue  
-**Expected:** Each question has a direct answer AND a supporting source (source code, issue tracker link, documentation, or ecosystem precedent). "Unknown" or "TBD" without evidence fails.  
-**Edge cases:** Answer references a GitHub issue number without a URL — acceptable if traceable; dead link — fails
+**Expected:** Each question has a direct answer AND a supporting source (source code, issue tracker link, documentation, or ecosystem precedent). "Unknown" or "TBD" without evidence fails. Q2 ("What is the right KSP processor architecture for this use case?") must be explicitly addressed — either as a dedicated section or as an explicit statement that the question is moot because KSP is rejected. Silence on Q2 fails this TC.  
+**Implementation note:** `withClue` labels in the test must align with the actual question numbering from the issue (Q1 through Q5), not the document's section ordering (which differs). Mislabeled clues obscure which question is being checked and make failures harder to diagnose.  
+**Edge cases:** Answer references a GitHub issue number without a URL — acceptable if traceable; dead link — fails. Q2 answered only implicitly by the Verdict without an explicit statement — fails.
 
 ---
 
@@ -40,6 +42,7 @@
 **Verifies:** AC — "If KSP is not recommended, the alternative is named with rationale"  
 **Condition:** Decision document states whether KSP is recommended or rejected, and if rejected, names the alternative  
 **Expected:** Document rejects KSP (or recommends it). If rejected: names the alternative (standalone Gradle `@CacheableTask`), explains why KSP fails for this use case (Gradle input tracking cannot see external JSON files), and confirms the alternative resolves the failure mode.  
+**Implementation note:** Avoid `(text.contains("A") || text.contains("B")) shouldBe true` — Kotest reports only `expected true but was false` with no indication of which branch failed. Instead use separate `shouldContain` calls or `shouldContainAny(listOf("A", "B"))` so the failing string is named in the output.  
 **Edge cases:** Document says "KSP has issues but might work with workarounds" — this is a non-decision; Verdict must be clear
 
 ---
@@ -53,13 +56,18 @@
 
 ---
 
-### TC-5: SHADER-2 issue body updated with spike findings [UPDATED — shadow from 2026-04-18 review]
+### TC-5: SHADER-2 issue body updated with spike findings [UPDATED — shadow from 2026-04-18 review; subprocess hardening revised 2026-04-19]
 **Layer:** Acceptance  
 **Verifies:** AC — "SHADER-2 issue updated with implementation hints from findings"  
 **Condition:** GitHub issue #17 (SHADER-2) **body** contains implementation notes from the spike. Checked via `gh issue view 17 --json body --jq '.body'`.  
 **Expected:** Issue body references the confirmed approach (Gradle task, NOT KSP). A comment does not satisfy this — the body itself must be edited via `gh issue edit 17 --body "..."`.  
-**Implementation constraints:** The `gh` subprocess implementing this check must use `redirectErrorStream(true)`, a timeout on `waitFor(30, TimeUnit.SECONDS)`, and a scoped environment (clear env, set only `GH_TOKEN`) to prevent CI deadlock and secret exposure.  
-**Edge cases:** Findings posted only as a comment while body retains "TBD" — fails. `gh` subprocess exits non-zero — exit code must be checked before asserting on body content.
+**Implementation constraints:**  
+1. **Stream draining order:** Drain stdout on a background thread (e.g., `val bodyFuture = CompletableFuture.supplyAsync { result.inputStream.bufferedReader().readText() }`) and call `waitFor(30, TimeUnit.SECONDS)` on the main thread. Do NOT call `readText()` before `waitFor()` — `readText()` blocks until process exit and defeats the timeout on a subprocess hang.  
+2. **On timeout:** Call `result.destroyForcibly()` before failing the test. Do not leave the orphaned process running.  
+3. **Environment scoping:** Preserve `PATH` and `HOME` from the parent process; remove all others; set only `GH_TOKEN`. Correct pattern: `it.clear(); it["PATH"] = System.getenv("PATH") ?: "/usr/bin:/bin"; it["HOME"] = System.getenv("HOME") ?: ""; it["GH_TOKEN"] = token`. Without `PATH`, the bare `gh` command cannot be resolved. Without `HOME`, `gh` cannot locate `~/.config/gh/` and may fail authentication even with a valid token.  
+4. **Exit code:** Check `result.exitValue() == 0` before asserting on body content.  
+5. **Cross-spec consistency:** This same hardening (redirectErrorStream(true), PATH+HOME+GH_TOKEN env, 30s waitFor timeout, exitValue check, destroyForcibly on timeout) must be applied to ALL `gh` subprocess invocations across spike specs — including SpikeShader1DecisionSpec's TC-5b. Inconsistent subprocess handling between specs is a test reliability defect.  
+**Edge cases:** Findings posted only as a comment while body retains "TBD" — fails. `gh` subprocess exits non-zero — exit code must be checked before asserting on body content. `gh` not found on PATH — IOException before assertions; use absolute path or verify PATH is set.
 
 ---
 
@@ -70,6 +78,7 @@
 **Verifies:** Decision — KSP fails because Gradle cannot track external JSON inputs, causing silent incremental build failures  
 **Condition:** Decision document explains the specific KSP failure mode  
 **Expected:** Document demonstrates that changing a `.json` file (spirv-cross output) does not trigger a KSP re-run, and that there is no supported KSP API to declare this dependency to Gradle. The failure is silent (no build error; stale types silently survive). Reference to KSP issue #1677 or equivalent structural evidence.  
+**Implementation note:** Avoid multi-branch OR assertions. Prefer separate `shouldContain` calls or `shouldContainAny(...)` so Kotest names the failing string in its output.  
 **Edge cases:** Document says "KSP is more complex" as the primary reason — complexity alone does not justify rejection; the correctness failure must be the lead argument
 
 ---
@@ -88,6 +97,7 @@
 **Verifies:** Decision — pipeline is compileShaders → reflectShaders → generateBindings → compileKotlin  
 **Condition:** Decision document describes the full task chain  
 **Expected:** Document explicitly shows all four stages with their dependencies. `reflectShaders` task runs `spirv-cross --reflect` and produces `.reflection.json` per shader. `generateShaderBindings` consumes JSON and produces `.kt` files. `compileKotlin` sees generated sources automatically via source set wiring.  
+**Implementation note:** Avoid OR assertions for stage names. Use separate `shouldContain` calls per stage so each failing stage is named independently.  
 **Edge cases:** Document shows three stages but omits `reflectShaders` (conflating it with compileShaders) — fails; reflection is a distinct stage
 
 ---
@@ -97,6 +107,7 @@
 **Verifies:** Decision — `@JvmInline value class` for bindings, `sealed interface` for vertex attributes, `data class` for push constants  
 **Condition:** Decision document shows example generated output for a shader with at least one UBO, one push constant, and one vertex input  
 **Expected:** Generated `@JvmInline value class` for each binding index (not a raw Int). Vertex attributes as `sealed interface` with one subtype per location. Push constants as `data class`. Each type is in `commonMain` so all KMP targets see it.  
+**Implementation note:** The check must be scoped to the **generated output code block** specifically — not any code block in the document. The task skeleton (block 4) and registration snippet (block 5) may plausibly contain `data class` or `sealed` in future edits. Add a `hasCodeBlockNamed(sectionHeader, content)` helper that locates the code block under the "Output contract" or "generated output example" section, or extract the block by its ordinal position and assert within it.  
 **Edge cases:** Generated class uses a bare `Int` property for binding index instead of `@JvmInline value class` — fails; "the whole point" of this feature is no raw int exposure
 
 ---
@@ -106,6 +117,7 @@
 **Verifies:** Decision — `outputDir` of `generateShaderBindings` is added to `commonMain.kotlin.srcDirs`  
 **Condition:** Decision document or registration snippet shows source set wiring  
 **Expected:** `kotlin.sourceSets.named("commonMain") { kotlin.srcDir(generateShaderBindings.map { it.outputDir }) }` or equivalent. Generated files must be in `commonMain` (not a JVM-only source set) to maintain KMP portability.  
+**Implementation note:** Avoid OR assertions for wiring method names. Prefer separate `shouldContain` calls or named `withClue` per variant so failure output identifies which exact expression is missing.  
 **Edge cases:** Wiring adds to `jvmMain` instead of `commonMain` — fails for KMP; generated sources in `commonMain` is a settled architectural requirement
 
 ---
@@ -115,6 +127,7 @@
 **Verifies:** Decision — open question resolved: spirv-cross CLI preferred over spirv-reflect-kt JVM library for initial implementation  
 **Condition:** Decision document addresses the spirv-cross vs. spirv-reflect-kt choice  
 **Expected:** Document explicitly states which tool is used for v0 and why. If spirv-cross: rationale is that it's already installed by the Vulkan SDK alongside glslc (no new dependency). spirv-reflect-kt noted as a valid future migration path.  
+**Implementation note:** Avoid OR assertions for Vulkan SDK rationale phrases. Use separate `shouldContain` calls or `shouldContainAny(listOf(...))` with a meaningful clue that names the accepted phrases.  
 **Edge cases:** Document leaves the choice open ("either works") — fails; the spike must produce a decision
 
 ---
@@ -163,6 +176,7 @@
 **Verifies:** Decision — known KSP caveat acknowledged, even though approach is rejected  
 **Condition:** Decision document addresses the sealed hierarchy IDE regression  
 **Expected:** Document notes that KSP-generated sealed types have a known IntelliJ recognition issue (KSP #1351) and confirms this is moot under the Gradle task approach (generated files are regular source files, no regression).  
+**Implementation note:** Avoid OR assertion for "moot" / "regular source" — use separate named `shouldContain` calls with distinct `withClue` text for each phrase so failure output names the missing term.  
 **Edge cases:** Document does not mention KSP #1351 at all — acceptable if KSP is cleanly rejected in TC-6; only matters if KSP was partially retained
 
 ---
@@ -177,11 +191,22 @@
 
 ---
 
+### TC-18: committedToGit() returns false when git exits non-zero [ADDED — shadow from 2026-04-19 review]
+**Layer:** Failure  
+**Shadow:** `committedToGit()` returns `true` on git error output (exit code discarded; stderr merged to stdout satisfies `isNotBlank()`)  
+**Verifies:** That `committedToGit()` correctly returns `false` on git failure, not `true` based on non-blank error output  
+**Condition:** `committedToGit()` is invoked with a path that causes git to exit non-zero (e.g., a path outside any git-tracked tree, or inside an uninitialized submodule)  
+**Expected:** Method returns `false`. Not `true` based on the non-blank error text ("fatal: not a git repository") merged via `redirectErrorStream(true)`.  
+**Implementation fix:** After `result.waitFor(30, TimeUnit.SECONDS)`, check `result.exitValue() == 0` before evaluating `output.isNotBlank()`. If exit code is non-zero, return `false` immediately. If timeout fires, call `result.destroyForcibly()` and return `false`.  
+**Edge cases:** Git exits 0 with empty output (path not in history) — correctly returns `false` via `isNotBlank()`. Git exits 128 with "fatal: not a git repository" on stderr — must return `false`, not `true`.
+
+---
+
 ## Coverage Summary
 
 | Layer | Count | Notes |
 |---|---|---|
-| Acceptance | 5 | One per AC item; TC-5 clarified: body edit required, subprocess constraints added |
-| Design | 7 | KSP rejection rationale, Gradle incremental, three-stage pipeline, generated type idioms, source set wiring, spirv-cross choice, determinism |
-| Failure | 5 | TC-13 (scoped to schema), TC-14 (incremental), TC-15 (KSP IDE regression), TC-16 (error handling stated), TC-17 (document-absent cascade) |
-| **Total** | **17** | (+2 added, TC-13 superseded by TC-16) |
+| Acceptance | 5 | One per AC item; TC-2 updated: explicit Q2 answer required; TC-5 subprocess hardening revised: stream order, PATH+HOME, cross-spec consistency |
+| Design | 7 | KSP rejection rationale, Gradle incremental, three-stage pipeline, generated type idioms (scope-aware check), source set wiring, spirv-cross choice, determinism |
+| Failure | 6 | TC-13 (scoped to schema), TC-14 (incremental), TC-15 (KSP IDE regression), TC-16 (error handling stated), TC-17 (document-absent cascade), TC-18 (committedToGit exit code) |
+| **Total** | **18** | (+1 added TC-18; impl notes added to TC-1, TC-2, TC-3, TC-5, TC-6, TC-8, TC-9, TC-10, TC-11, TC-15) |
