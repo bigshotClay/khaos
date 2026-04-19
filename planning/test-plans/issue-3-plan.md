@@ -7,6 +7,17 @@
 
 ---
 
+## Process Gate (pre-condition for full plan pass)
+
+`planning/designs/issue-3-design.md` must be committed to the branch with D5 and D3 deviation annotations before this test plan can be considered fully passing. Specifically:
+
+- **D5 annotation** must document the approved deviation: `kotlin.multiplatform` and `kotlin.jvm` plugin aliases are absent from root `build.gradle.kts` due to the Gradle 9.4.1 buildSrc classpath conflict (see `_bmad/memory/agent-dev/MEMORY.md` "Kotlin plugin + buildSrc classpath conflict").
+- **D3 annotation** must document the approved deviation: `finalizedBy(tasks.jacocoTestReport)` was replaced with `dependsOn` on `jacocoTestReport` to prevent JaCoCo running unconditionally on test failure (COR-05).
+
+This is a process gate, not a numbered TC. Forge must commit `planning/designs/issue-3-design.md` with these annotations before marking the issue ready for final review.
+
+---
+
 ## Scope
 
 This plan covers the Gradle multi-module scaffolding. All test cases are verified by file inspection, `./gradlew` task execution, or Kotest specs running in `khaos-test-harness`. There is no application logic — tests validate structure, build hygiene, and spike test migration.
@@ -159,9 +170,8 @@ Implementation note: The `khaos.` prefix in the file name is mandatory — it is
 - All plugin declarations in root use `apply false`
 - Root `build.gradle.kts` contains no `dependencies {}` block
 - `alias(libs.plugins.ksp) apply false` is present in root `build.gradle.kts`
-- [REQUIRES RESOLUTION] `alias(libs.plugins.kotlin.multiplatform) apply false` is present in root `build.gradle.kts` — D5 requires this, but `_bmad/memory/agent-dev/MEMORY.md` documents that re-declaring `kotlin-gradle-plugin` at root after buildSrc puts it on the classpath causes "already on classpath with unknown version" failure. If this cannot be declared at root due to the classpath conflict, document the deviation in the design as an approved exception to D5 and annotate this assertion accordingly.
-- [REQUIRES RESOLUTION] `alias(libs.plugins.kotlin.jvm) apply false` is present in root `build.gradle.kts` — same classpath conflict constraint applies as above.
-- Verification: static file check; classpath conflict resolution determines whether the two REQUIRES RESOLUTION assertions are enforced or documented as approved deviations
+- NOTE (approved deviation): `alias(libs.plugins.kotlin.multiplatform) apply false` and `alias(libs.plugins.kotlin.jvm) apply false` are intentionally absent from root `build.gradle.kts`. Reason: `buildSrc/build.gradle.kts` puts `kotlin-gradle-plugin` on the main build classpath; re-declaring with a version at root causes "already on classpath with unknown version". This is the documented Gradle 9.4.1 buildSrc constraint. See: `_bmad/memory/agent-dev/MEMORY.md` "Kotlin plugin + buildSrc classpath conflict". See: `planning/designs/issue-3-design.md` D5 annotation.
+- Verification: static file check
 
 ---
 
@@ -190,21 +200,18 @@ The following TCs were added from the Gauntlet review shadow patch (`planning/sh
 ---
 
 **TC-19 — Root `build.gradle.kts` declares all required plugin aliases with `apply false` (D5)**
-- [REQUIRES RESOLUTION] Root `build.gradle.kts` contains `alias(libs.plugins.kotlin.multiplatform) apply false`
-- [REQUIRES RESOLUTION] Root `build.gradle.kts` contains `alias(libs.plugins.kotlin.jvm) apply false`
 - Root `build.gradle.kts` contains `alias(libs.plugins.ksp) apply false`
-
-Resolution note: D5 mandates all three declarations. MEMORY.md documents that re-declaring `kotlin-gradle-plugin` at root after buildSrc puts it on the classpath causes "already on classpath with unknown version" failure. If the two Kotlin plugin aliases cannot be declared at root due to the classpath conflict, this TC must be annotated as a known deviation from D5: document the buildSrc classpath constraint as an approved exception in the design doc and update this assertion to verify the deviation is documented rather than failing the implementation.
-
+- NOTE (approved deviation): `alias(libs.plugins.kotlin.multiplatform) apply false` and `alias(libs.plugins.kotlin.jvm) apply false` are intentionally absent from root `build.gradle.kts`. Reason: `buildSrc/build.gradle.kts` puts `kotlin-gradle-plugin` on the main build classpath; re-declaring with a version at root causes "already on classpath with unknown version". This is the documented Gradle 9.4.1 buildSrc constraint. See: `_bmad/memory/agent-dev/MEMORY.md` "Kotlin plugin + buildSrc classpath conflict". See: `planning/designs/issue-3-design.md` D5 annotation.
 - Verification: static file content check
 
 ---
 
 **TC-20 — `committedToGit()` git ProcessBuilder sanitizes child process environment**
 - `SpikeDecisionDocument.committedToGit()` calls `process.environment().also { it.clear() }` (or equivalent) before any environment variable assignments on the git ProcessBuilder
+- VERIFY: After `clear()`, `pb.environment()["PATH"]` is set to `System.getenv("PATH")` or a non-empty fallback (e.g., `"/usr/bin:/bin"`). No other secret env vars (`GH_TOKEN`, `GITHUB_TOKEN`, `SSH_AUTH_SOCK`, etc.) are re-added after the clear.
 - The git subprocess must not inherit GH_TOKEN, GITHUB_TOKEN, SSH_AUTH_SOCK, or other secrets from the parent JVM environment
-- Rationale: GH subprocess in spike specs correctly clears env; git subprocess must match for consistency and to prevent credential leakage to git credential helpers or post-checkout hooks
-- Verification: static code inspection — grep for `environment()` and `clear()` in `SpikeDecisionDocument.kt`
+- Rationale: GH subprocess in spike specs correctly clears env and restores PATH; git subprocess must match for consistency, to prevent credential leakage to git credential helpers or post-checkout hooks, and to ensure the git binary is reachable on non-standard runners (Homebrew macOS: `/opt/homebrew/bin/git`; Alpine: `/usr/bin/git`)
+- Verification: static code inspection — grep for `environment()`, `clear()`, and PATH restoration in `SpikeDecisionDocument.kt`
 
 ---
 
@@ -236,12 +243,18 @@ Resolution note: D5 mandates all three declarations. MEMORY.md documents that re
 ---
 
 **TC-24 — KSP version resolves as a published artifact**
+
+HARD REQUIREMENT: This TC must pass before the PR can be merged. Run `./gradlew help` (or equivalent) with `ksp` applied to any module and confirm no resolution error. If `2.3.6` does not resolve, correct the version in `gradle/libs.versions.toml`.
+
 - The `ksp` version string in `gradle/libs.versions.toml` resolves to a published artifact on Maven Central or the Gradle Plugin Portal
 - Acceptable verification methods:
-  - (a) Confirm artifact exists at `search.maven.org/artifact/com.google.devtools.ksp/symbol-processing-gradle-plugin/{version}`
-  - (b) Run `./gradlew dependencyInsight --dependency com.google.devtools.ksp --configuration classpath` and assert no "not found" error
+  - (a) Run `./gradlew help` (with `alias(libs.plugins.ksp)` applied to `khaos-shader` or any module) and confirm no "not found" resolution error
+  - (b) Confirm artifact exists at `search.maven.org/artifact/com.google.devtools.ksp/symbol-processing-gradle-plugin/{version}`
+  - (c) Run `./gradlew dependencyInsight --dependency com.google.devtools.ksp --configuration classpath` and assert no "not found" error
 - Note: KSP versions for Kotlin 2.x historically follow the `<kotlinVersion>-<kspRelease>` format (e.g., `2.0.21-1.0.25`). The design doc D4 claims the versioning scheme changed at 2.3.x; verify this is true before accepting a standalone version string like `2.3.6`. If `2.3.6` does not exist on any registry, correct to the appropriate format per KSP release notes.
-- Verification: external resolution check — guard with env-var presence or skip in offline mode; static version format check
+- PASS: artifact confirmed present, `./gradlew help` exits 0 with no resolution error
+- FAIL: "not found" resolution error or artifact absent — correct the version in `gradle/libs.versions.toml` before merge
+- Verification: runtime resolution check (mandatory — not deferrable)
 
 ---
 
@@ -290,6 +303,7 @@ Resolution note: D5 mandates all three declarations. MEMORY.md documents that re
 - `khaos.kotlin-jvm.gradle.kts` wires `jacocoTestReport` such that it only runs when the test task produces coverage data (i.e., does not run unconditionally on test failure)
 - Acceptable patterns: `jacocoTestReport { onlyIf { tasks.test.get().state.failure == null } }` or equivalent conditional wiring
 - Unacceptable: bare `finalizedBy(tasks.jacocoTestReport)` with no guard — `finalizedBy` fires even when the test task fails before producing an `.exec` file, generating spurious JaCoCo noise on top of the actual failure
+- VERIFY: `tasks.jacocoTestReport { dependsOn(tasks.test) }` is configured in `khaos.kotlin-jvm.gradle.kts`. This ensures coverage is still triggered when `./gradlew jacocoTestReport` is run explicitly.
 - Verification: static code inspection of `khaos.kotlin-jvm.gradle.kts` test task configuration
 
 ---
