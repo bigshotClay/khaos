@@ -8,7 +8,12 @@ repositories {
 }
 
 val lwjglVersion = "3.3.6"
-val lwjglNatives = "natives-linux"
+val lwjglNatives = when {
+    System.getProperty("os.name").startsWith("Windows") -> "natives-windows"
+    System.getProperty("os.name") == "Mac OS X" ->
+        if (System.getProperty("os.arch") == "aarch64") "natives-macos-arm64" else "natives-macos"
+    else -> "natives-linux"
+}
 
 dependencies {
     testImplementation("io.kotest:kotest-runner-junit5:5.9.1")
