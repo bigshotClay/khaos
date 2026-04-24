@@ -18,3 +18,7 @@ Thumbs.db
 
 # Logs
 *.log
+.thagomizer/corpus/
+.thagomizer/personas/
+.claude/skills/thagomizer-*/
+.thagomizer/runs/

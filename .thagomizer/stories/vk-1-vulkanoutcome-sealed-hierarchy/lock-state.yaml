@@ -1,0 +1,8 @@
+schema_version: "1.0"
+story_slug: vk-1-vulkanoutcome-sealed-hierarchy
+version_ref: v2.md
+artifact_id: e5741466-4663-4425-a670-55950619a75b
+story_hash: 9095624297d3c437cd6770aadb2e819d55457f70bb813452f192ff8a24baec83
+target_language: jvm
+locked_at: 2026-04-24T00:00:00.000Z
+complete: true
