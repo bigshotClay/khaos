@@ -18,3 +18,10 @@ Thumbs.db
 
 # Logs
 *.log
+.thagomizer/corpus/
+.thagomizer/personas/
+.claude/skills/thagomizer-*/
+.thagomizer/runs/
+_bmad-output/
+_bmad/
+planning/designs/
