@@ -20,7 +20,7 @@ Thumbs.db
 *.log
 .thagomizer/corpus/
 .thagomizer/personas/
-.claude/skills/thagomizer-*/
+.claude/
 .thagomizer/runs/
 _bmad-output/
 _bmad/
