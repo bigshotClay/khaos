@@ -5,9 +5,10 @@ This project uses [thagomizer](https://github.com/claybamer/thagomizer) for AI-n
 ## Workspace
 
 All framework artifacts live in `.thagomizer/`:
-- `stories/active/` — active story files
-- `runs/` — execution run state
-- `corpus/` — code law corpus
+- `stories/active/` — active story lock state
+- `stories/<slug>/` — versioned story drafts
+- `runs/` — execution run state and artifacts
+- `case-law/` — verdict records and case index
 - `personas/` — agent persona definitions
 
 ## CLI
