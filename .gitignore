@@ -22,3 +22,6 @@ Thumbs.db
 .thagomizer/personas/
 .claude/skills/thagomizer-*/
 .thagomizer/runs/
+_bmad-output/
+_bmad/
+planning/designs/
