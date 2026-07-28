@@ -33,7 +33,15 @@ jobs:
         run: ls /usr/share/vulkan/icd.d/
 
       - name: Set Lavapipe ICD
-        run: echo "VK_ICD_FILENAMES=$(ls /usr/share/vulkan/icd.d/lvp_icd.*.json | head -1)" >> $GITHUB_ENV
+        # Mesa ships this as lvp_icd.json on Ubuntu 24.04 and as lvp_icd.<arch>.json
+        # elsewhere, so match both. Resolve before writing to GITHUB_ENV: inside a
+        # command substitution a failed glob is silent, which would export an empty
+        # VK_ICD_FILENAMES and leave the tests running against the wrong driver.
+        run: |
+          set -euo pipefail
+          icd=$(ls /usr/share/vulkan/icd.d/lvp_icd*.json | head -1)
+          echo "Using Lavapipe ICD: $icd"
+          echo "VK_ICD_FILENAMES=$icd" >> "$GITHUB_ENV"
 
       - name: Run tests
         run: ./gradlew test
