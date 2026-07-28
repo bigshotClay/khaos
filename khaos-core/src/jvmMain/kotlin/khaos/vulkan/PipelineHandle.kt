@@ -12,4 +12,17 @@ package khaos.vulkan
  *
  * Cost: one heap allocation per instance that the other inline handle types avoid.
  */
-data class PipelineHandle(val handle: Long, val reusable: Boolean)
+data class PipelineHandle(val handle: Long, val reusable: Boolean) {
+    companion object {
+        /**
+         * The absent pipeline — `VK_NULL_HANDLE`, matching the `NULL` constant every other handle
+         * type exposes. Use it instead of a nullable `PipelineHandle?` so the absent case stays in
+         * the type rather than in every call site's null check.
+         *
+         * `reusable` is `false` because reuse is a promise about a real pipeline object surviving
+         * across draws. There is no object here to survive, and declaring the null handle reusable
+         * would let a multi-draw path accept it as a legitimate binding.
+         */
+        val NULL = PipelineHandle(handle = 0L, reusable = false)
+    }
+}

@@ -176,6 +176,32 @@ class HandleSpec : FreeSpec({
         }
     }
 
+    "AC4-P4: PipelineHandle.NULL has handle value 0L and is not reusable" {
+        PipelineHandle.NULL.handle shouldBe 0L
+        // A sentinel standing for "no pipeline" must not claim it survives across draws.
+        PipelineHandle.NULL.reusable shouldBe false
+    }
+
+    "AC4-P5: every handle type exposes a NULL sentinel — including the non-inline PipelineHandle" {
+        // AC4-P3 walks only the inline types. PipelineHandle is a data class and would slip
+        // through that loop, which is exactly how it went without a sentinel until now.
+        val allHandleClasses = allInlineHandleClasses + PipelineHandle::class
+        for (klass in allHandleClasses) {
+            val companion = klass.companionObjectInstance
+                ?: error("${klass.simpleName} has no companion object — AC4 requires a NULL sentinel")
+            val companionKlass = klass.companionObject
+                ?: error("${klass.simpleName} has no companion KClass")
+            val nullValue = companionKlass.memberProperties
+                .firstOrNull { it.name == "NULL" }
+                ?.getter?.call(companion)
+                ?: error("${klass.simpleName} exposes no NULL constant")
+            val handleValue = klass.memberProperties
+                .first { it.name == "handle" }
+                .getter.call(nullValue)
+            handleValue shouldBe 0L
+        }
+    }
+
     "AC4-N1 (negative): directly constructing InstanceHandle(0L) fails to compile" {
         val compilation = KotlinCompilation().apply {
             sources = listOf(SourceFile.kotlin("DirectConstruct.kt", """
