@@ -21,11 +21,10 @@ Thumbs.db
 
 # Agent workspaces
 .claude/
-_bmad-output/
-_bmad/
+# Retired 2026-07-28 — thagomizer v2 is the only orchestrator (see THAGOMIZER.md).
+# _bmad/ and _bmad-output/ (BMAD suite) and .thagomizer/ (v1) are gone; the PRD,
+# designs, research and test plans they held now live in docs/ and are tracked.
 planning/designs/
-# .thagomizer/ was the v1 workspace (corpus, personas, runs, case-law, stories).
-# v2 keeps no workspace here — see THAGOMIZER.md.
 
 # Editor backups
 *.bak
