@@ -105,7 +105,8 @@ class HandleSpec : FreeSpec({
                 !m.name.startsWith("get") &&
                 !m.name.startsWith("is") &&
                 m.name != "copy" &&
-                !m.name.startsWith("component")
+                !m.name.startsWith("component") &&
+                !isCompilerGenerated(m.name)
             }
             for (method in apiMethods) {
                 for (paramType in method.parameterTypes) {
@@ -127,7 +128,8 @@ class HandleSpec : FreeSpec({
                 !m.name.startsWith("get") &&
                 !m.name.startsWith("is") &&
                 m.name != "copy" &&
-                !m.name.startsWith("component")
+                !m.name.startsWith("component") &&
+                !isCompilerGenerated(m.name)
             }
             for (method in apiMethods) {
                 method.returnType shouldNotBe Long::class.javaPrimitiveType
@@ -238,3 +240,18 @@ class HandleSpec : FreeSpec({
         compilation.compile().exitCode shouldBe KotlinCompilation.ExitCode.COMPILATION_ERROR
     }
 })
+
+/**
+ * True for JVM methods the Kotlin compiler emits as part of a type's binary
+ * representation rather than its source-declared API.
+ *
+ * `@JvmInline` value classes emit static bridges — `toString-impl`, `hashCode-impl`,
+ * `equals-impl`, `box-impl`, `equals-impl0` — that take the erased `long` backing
+ * value as their first parameter. Data classes emit `copy$default` likewise. Neither
+ * is reachable from Kotlin source, and both carry `Long` because of the JVM erasure
+ * strategy, not because the Vulkan-facing API exposes a raw handle. The `-` and `$`
+ * characters are illegal in Kotlin/Java identifiers, so these names cannot collide
+ * with a genuine hand-written API method.
+ */
+private fun isCompilerGenerated(name: String): Boolean =
+    name.contains('-') || name.contains('$')
