@@ -25,3 +25,6 @@ Thumbs.db
 _bmad-output/
 _bmad/
 planning/designs/
+
+# Editor backups
+*.bak
