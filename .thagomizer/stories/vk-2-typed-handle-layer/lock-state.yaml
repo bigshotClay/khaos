@@ -1,8 +1,0 @@
-schema_version: "1.0"
-story_slug: vk-2-typed-handle-layer
-version_ref: v1.md
-artifact_id: f953d029-3f8f-4a09-828e-d293a5819ad5
-story_hash: 1c222141698d055003c5b0cf8bdad9f5ad9d9f2dfe8cccf1070c7deb3a6a26ae
-target_language: jvm
-locked_at: 2026-04-24T00:00:00.000Z
-complete: true

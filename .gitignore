@@ -18,13 +18,14 @@ Thumbs.db
 
 # Logs
 *.log
-.thagomizer/corpus/
-.thagomizer/personas/
+
+# Agent workspaces
 .claude/
-.thagomizer/runs/
 _bmad-output/
 _bmad/
 planning/designs/
+# .thagomizer/ was the v1 workspace (corpus, personas, runs, case-law, stories).
+# v2 keeps no workspace here — see THAGOMIZER.md.
 
 # Editor backups
 *.bak
