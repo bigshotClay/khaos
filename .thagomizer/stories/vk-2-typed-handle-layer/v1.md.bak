@@ -1,0 +1,46 @@
+---
+title: "VK-2: Typed handle layer — @JvmInline value classes for all Vulkan handles"
+version: "1"
+status: draft
+created_at: "2026-04-24T00:00:00.000Z"
+author: "Clay"
+target_language: "jvm"
+background: |
+  Raw Vulkan handles are opaque Long integers — there is no type distinction between a VkBuffer and a VkImage at the API boundary. A call site that passes a buffer handle where an image handle is expected compiles and links without error, manifesting only as a Vulkan validation layer error at runtime or, worse, a GPU fault. Kotlin's @JvmInline value class feature erases to the underlying Long at the JVM level, so handle wrapping carries zero runtime overhead while giving the compiler the information it needs to reject mismatches at compile time. This story establishes the typed handle layer that all subsequent kernel wrappers (VK-3 through VK-8) will build on — every public API boundary accepts and returns typed handles, never raw Longs. An invalid or uninitialized handle is represented as a typed sentinel (e.g., InstanceHandle.NULL) rather than a nullable type, keeping the API non-null throughout.
+
+  [Implementation note: PipelineHandle is specified to carry a reusable: Boolean field alongside the Long handle. A standard @JvmInline value class on JVM can only wrap a single backing property — this means PipelineHandle either packs the boolean into the Long via bit manipulation, or is a regular data class that does not benefit from inline erasure. The story must resolve this tension explicitly.]
+acceptance_criteria:
+  - priority: "critical"
+    description: "Given the set of Vulkan handles used in the v0 kernel — InstanceHandle, DeviceHandle, PhysicalDeviceHandle, QueueHandle, SurfaceHandle, SwapchainHandle, ImageHandle, ImageViewHandle, RenderPassHandle, FramebufferHandle, CommandPoolHandle, CommandBufferHandle, SemaphoreHandle, FenceHandle, PipelineHandle, PipelineLayoutHandle, DescriptorSetLayoutHandle, BufferHandle, DeviceMemoryHandle — when any one of these types is used where a different handle type is expected, then the code fails to compile."
+  - priority: "critical"
+    description: "Given each handle type that wraps a Long, when the compiled JVM bytecode is inspected, then the value class erases to Long with no wrapper object allocation — confirmed by verifying the class carries the @JvmInline annotation and checking that Kotlin reflects it as an inline (value) class via KClass.isValue."
+  - priority: "critical"
+    description: "Given the public API surface of the khaos.vulkan package, when all public function signatures and property types are inspected, then no parameter or return type is a raw Long — every handle position uses the appropriate typed handle class."
+  - priority: "critical"
+    description: "Given an uninitialized or invalid Vulkan handle (VK_NULL_HANDLE = 0L), when a call site needs to represent the absent handle, then it uses a typed sentinel constant (e.g., InstanceHandle.NULL) rather than null — the handle type itself is non-nullable throughout the API."
+  - priority: "critical"
+    description: "Given PipelineHandle, which must carry both a Long Vulkan handle and a reusable Boolean flag indicating whether the pipeline supports multi-draw reuse, when a PipelineHandle is constructed, then both fields are accessible; the implementation documents whether inline erasure applies and why."
+---
+
+# Story Context
+
+## Source
+
+GitHub issue #6 — VK-2: Typed handle layer — @JvmInline value classes for all Vulkan handles
+
+## Design Tensions
+
+### PipelineHandle.reusable
+A standard `@JvmInline value class` on JVM permits exactly one backing property. `PipelineHandle` requires both a `Long` (the Vulkan handle) and a `Boolean` (`reusable`). Options:
+
+1. **Bit-pack** — store `reusable` in the high bit of the `Long`. Zero overhead, but obscures intent and requires masking on every access.
+2. **Regular data class** — drop `@JvmInline` for `PipelineHandle` only. Loses allocation-free guarantee for that one type; all other handles remain inline.
+3. **Separate types** — `ReusablePipelineHandle` and `SingleUsePipelineHandle`, each a single-field inline class. Exhaustive but doubles the pipeline handle surface.
+
+AC5 requires the implementation to document the chosen approach and its tradeoffs.
+
+### Zero-allocation test strategy
+The issue asks for a "size check via reflection or bytecode inspection." In practice:
+- `KClass.isValue == true` confirms the compiler treated the type as a value class.
+- Full allocation absence requires JMH or a Java agent (e.g., JAMM) — out of scope for a unit test.
+- A reasonable test asserts `isValue == true` and spot-checks that the class has no fields beyond the single backing property via reflection.

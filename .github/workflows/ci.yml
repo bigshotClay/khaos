@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
-      - uses: actions/setup-java@7a6d8a8234af8eb26422e24052917d12791f1c74  # v4.7.0
+      - uses: actions/setup-java@3a4f6e1af504cf6a31855fa899c6aa5355ba6c12  # v4.7.0
         with:
           java-version: '21'
           distribution: 'temurin'
@@ -32,7 +33,15 @@ jobs:
         run: ls /usr/share/vulkan/icd.d/
 
       - name: Set Lavapipe ICD
-        run: echo "VK_ICD_FILENAMES=$(ls /usr/share/vulkan/icd.d/lvp_icd.*.json | head -1)" >> $GITHUB_ENV
+        # Mesa ships this as lvp_icd.json on Ubuntu 24.04 and as lvp_icd.<arch>.json
+        # elsewhere, so match both. Resolve before writing to GITHUB_ENV: inside a
+        # command substitution a failed glob is silent, which would export an empty
+        # VK_ICD_FILENAMES and leave the tests running against the wrong driver.
+        run: |
+          set -euo pipefail
+          icd=$(ls /usr/share/vulkan/icd.d/lvp_icd*.json | head -1)
+          echo "Using Lavapipe ICD: $icd"
+          echo "VK_ICD_FILENAMES=$icd" >> "$GITHUB_ENV"
 
       - name: Run tests
         run: ./gradlew test
