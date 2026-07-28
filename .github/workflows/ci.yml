@@ -44,11 +44,16 @@ jobs:
           echo "VK_ICD_FILENAMES=$icd" >> "$GITHUB_ENV"
 
       - name: Run tests
-        run: ./gradlew test
+        # 'check', not 'test': khaos-core is a Kotlin Multiplatform module whose test task is
+        # named jvmTest, so './gradlew test' would silently skip it and only run the JVM
+        # modules. 'check' is present in every module and depends on whichever test task exists.
+        run: ./gradlew check
 
       - name: Upload coverage report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
           name: jacoco-report
-          path: build/reports/jacoco/
+          # Per-module now that the build is multi-module; the root project produces no reports.
+          path: "**/build/reports/jacoco/"
+          if-no-files-found: ignore
