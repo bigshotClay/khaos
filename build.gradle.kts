@@ -1,43 +1,11 @@
+// NOTE: alias(libs.plugins.kotlin.multiplatform) and alias(libs.plugins.kotlin.jvm) cannot be
+// declared here — buildSrc puts kotlin-gradle-plugin on the classpath and Gradle rejects a
+// re-declaration ("already on classpath with unknown version"). D5 approved deviation.
+// See _bmad/memory/agent-dev/MEMORY.md: "Kotlin plugin + buildSrc classpath conflict".
 plugins {
-    kotlin("jvm") version "2.1.20"
-    jacoco
+    alias(libs.plugins.ksp) apply false
 }
 
-repositories {
-    mavenCentral()
-}
-
-val lwjglVersion = "3.3.6"
-val lwjglNatives = when {
-    System.getProperty("os.name").startsWith("Windows") -> "natives-windows"
-    System.getProperty("os.name") == "Mac OS X" ->
-        if (System.getProperty("os.arch") == "aarch64") "natives-macos-arm64" else "natives-macos"
-    else -> "natives-linux"
-}
-
-dependencies {
-    testImplementation(kotlin("reflect"))
-    testImplementation("io.kotest:kotest-runner-junit5:5.9.1")
-    testImplementation("io.kotest:kotest-assertions-core:5.9.1")
-    testImplementation("dev.zacsweers.kctfork:core:0.7.1")
-    testImplementation("org.lwjgl:lwjgl:$lwjglVersion")
-    testImplementation("org.lwjgl:lwjgl-vulkan:$lwjglVersion")
-    testRuntimeOnly("org.lwjgl:lwjgl:$lwjglVersion:$lwjglNatives")
-}
-
-kotlin {
-    jvmToolchain(21)
-}
-
-tasks.test {
-    useJUnitPlatform()
-    finalizedBy(tasks.jacocoTestReport)
-}
-
-tasks.jacocoTestReport {
-    dependsOn(tasks.test)
-    reports {
-        xml.required = true
-        xml.outputLocation = layout.buildDirectory.file("reports/jacoco/test/jacocoTestReport.xml")
-    }
+allprojects {
+    group = "dev.khaos"
 }
